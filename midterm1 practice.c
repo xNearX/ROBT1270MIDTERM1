@@ -2,9 +2,9 @@
 ROBT1270 - C Programming
 MIDTERM #1 Practice Programming Problem
 
-Author: <Firstname, Lastname>
+Author: Leland, Dean
 
-Declaration: I, <Firstname, Lastname>, declare that the following program was written by me and I
+Declaration: I, Leland Dean, declare that the following program was written by me and I
              didn't get any help from anyone.
 
 Date Created: February 22 2023
