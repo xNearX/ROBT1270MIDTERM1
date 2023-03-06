@@ -39,7 +39,11 @@ void waitForEnterKey();    // waits for the Enter key to be pressed
 double degToRad(double);   // returns angle in radians from input angle in degrees
 double radToDeg(double);   // returns angle in degrees from input angle in radians
 void printHLine(int);      // print a solid line
-
+void printPoints(double*, double*, bool*, const size_t);
+bool inverseKinematics(double x, double y, double* r, double* theta);
+bool adjustPoints(double* x, double* y, bool* bAdjusted, const size_t NPTS);
+void printCommands(double* x, double* y, int* penPos, const size_t NPTS);
+void printSingleCommand(double x, double y, int penPos, int n);
 //----------------------------------------------------------------------------------------------------------------
 // demonstrates basic control of the robot simulator
 int main()
@@ -50,10 +54,15 @@ int main()
    bool bAdjusted[] = {false, false, false, false, false, false, false}; // set true if x,y outside range
    size_t NPTS = 0;  // number of points in the arrays (ASSUME ALL SAME NUMBER OF ELEMENTS)
 
+   NPTS = sizeof(x) / sizeof(x[0]);
 
+   printPoints(x, y, bAdjusted, NPTS);
+   if (adjustPoints(x, y, bAdjusted, NPTS))
+   {
+      printPoints(x, y, bAdjusted, NPTS);
+      printCommands(x, y, penPos, NPTS);
 
-
-
+   }
 
    printf("Press ENTER to end the program...");
    waitForEnterKey();
@@ -72,6 +81,134 @@ void printHLine(int N)
 
    for(n = 0; n < N; n++) printf("%c", HL);
    printf("\n");
+}
+
+void printPoints(double *x, double *y, bool *bAdjusted, const size_t NPTS)
+{
+   int pfw = PRINT_FIELD_WIDTH, pm = PRINT_MARGIN;
+   double r = 0;
+   for (size_t index = 0; index < NPTS; ++index)
+   {
+      if (index == 0)
+      {
+         printHLine(60);
+         printf("%*c%*c%*c%*s\n", pfw - pm, 'x', pfw, 'y', pfw, 'r', pfw + pm, "Adjusted");
+         printHLine(60);
+      }
+      r = sqrt(pow(x[index], 2) + pow(y[index], 2));
+
+      printf("%+*.*lf%+*.*lf%+*.*lf%*.*s\n", pfw, PRINT_PRECISION, x[index], pfw, PRINT_PRECISION, y[index], pfw, PRINT_PRECISION, r, pfw, PRINT_PRECISION, bAdjusted[index] ? "yes" : "no");
+
+   }
+}
+
+bool inverseKinematics(double x, double y, double* r, double* theta)
+{
+   *theta = atan2(y, x);
+   *r = sqrt((x*x) + (y*y));
+
+   if (*r < RMIN || *r >RMAX)
+   {
+      return false;
+   }
+   else
+   {
+      return true;
+   }
+}
+
+bool adjustPoints(double* x, double* y, bool* bAdjusted, const size_t NPTS)
+{
+   size_t n;
+   int selection = 0;
+   bool bHasGarbage = false;
+   int count = 0;
+   double r = 0;
+   double theta = 0;
+   int iret;
+
+   for (n = 0; n < NPTS; ++n)
+   {
+      if (!inverseKinematics(x[n], y[n], &r, &theta))
+      {
+         count++;
+         bAdjusted[n] = true;
+      }
+   }
+
+   /*
+   for (int index = 0; index < NPTS; ++index)
+   {
+      r = sqrt(pow(x[index], 2) + pow(y[index], 2));
+      if (r <= RMIN || r <= RMAX)
+      {
+         count++;
+         bAdjusted[index] = true;
+      }
+
+   }
+   */
+
+   if (count == 0) return false;
+
+   printf("%d points(s) are outside the robot range and need adjustment.\n", count);
+
+   while (true)
+   {
+      printf("Press 1 to adjust the %d coordinate(s), 2 to abort the adjustment: ", count);
+      iret = scanf_s("%d", &selection);
+      bHasGarbage = flushInputBuffer();
+
+      if (iret == 1 && !bHasGarbage && (selection == 1 || selection == 2)) break;
+   }
+
+   if (selection == 2)
+   {
+      printf("\n");
+      return false;
+   }
+
+   for (int index = 0; index < NPTS; ++index)
+   {
+      if (!bAdjusted[n]) continue;
+      
+      r = sqrt(pow(x[index], 2) + pow(y[index], 2));
+
+      if (r < RMIN)
+      {
+         x[n] *= RMIN / r;
+         y[n] *= RMIN / r;
+      }
+      else if (r > RMAX)
+      {
+         x[n] *= RMAX / r;
+         x[n] *= RMAX / r;
+      }
+   }
+
+   printf("\n");
+   return true;
+
+}
+
+void printCommands(double* x, double* y, int* penPos, const size_t NPTS)
+{
+   size_t n;
+   for (n = 0; n < NPTS; ++n) printSingleCommand(x[n], y[n], penPos[n], (int)(n + 1));
+   printf("\n");
+}
+
+void printSingleCommand(double x, double y, int penPos, int n)
+{
+   double r, theta;
+
+   inverseKinematics(x, y, &r, &theta);
+   printf("Point #%d string: \"MOVE_ARM R %*.*lf THETA %+*.*lf ", n,
+      COMMAND_FIELD_WIDTH, COMMAND_PRECISION, r, COMMAND_FIELD_WIDTH, COMMAND_PRECISION, radToDeg(theta));
+   if (penPos == PEN_UP)
+      printf("PEN_UP\"\n");
+   else
+      printf("PEN_DOWN\"\n");
 }
 
 //----------------------------------------------------------------------------------------------------------------
